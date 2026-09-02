@@ -1,0 +1,19 @@
+# AI Tutorials (How-To) — ek line = ek video
+# Format:  Video subject | optional extra instruction
+# '#' se shuru line ignore hoti hai.
+
+ChatGPT se resume kaise banaye jo ATS me pass ho jaye | fresher ke liye, 3 steps
+NotebookLM se 100 page ki PDF ko 5 minute me kaise samjhe | student use case
+Canva AI se YouTube thumbnail 2 minute me kaise banaye | beginner
+AI se Excel formula kaise likhwaye bina formula seekhe | office worker angle
+Free AI se apni photo ka professional headshot kaise banaye
+Whisper se kisi bhi video ka Hindi subtitle kaise banaye free me
+AI se PowerPoint presentation 5 minute me kaise banaye | college project
+Google Gemini se poori study timetable kaise banwaye | exam ke liye
+AI se email professional English me kaise likhe | job seeker
+ElevenLabs se apni awaaz ka AI clone kaise banaye | ethical use batao
+AI se handwritten notes ko searchable text me kaise badle
+Perplexity se research 10 guna fast kaise kare | assignment ke liye
+AI image generator se Instagram post kaise banaye free me
+AI se koi bhi English video Hindi me kaise dekhe
+ChatGPT ke 5 prompt jo har student ko aane chahiye | list format
