@@ -1,0 +1,12 @@
+# AI News & Updates — roz subah 10 min me 3 fresh lines add karo
+# Sources: TechCrunch AI, The Verge AI, Google News "AI", X/Twitter AI accounts
+# Format:  Video subject | optional extra instruction
+# NEWS KI SHELF LIFE 48 GHANTE HAI — same din generate + upload karo.
+
+# --- yeh sirf examples hain, inhe aaj ki actual news se replace karo ---
+OpenAI ka naya model launch — India ke users ke liye kya badla
+Google Gemini ka naya feature jo free users ko mil raha hai
+India me AI regulation par nayi guideline — freelancers par asar
+Ek badi company ne AI se jobs cut kiye — kaunse roles safe hain
+Naya open source AI model jo laptop par chal jata hai
+AI video generation me nayi breakthrough — creators ke liye matlab
