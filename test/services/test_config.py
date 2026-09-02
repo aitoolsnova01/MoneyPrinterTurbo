@@ -518,3 +518,30 @@ class TestConfigPersistence:
                     config.app.pop(key, None)
                 else:
                     config.app[key] = original_value
+
+    def test_example_config_documents_automation_section(self):
+        example_config = self._load_example_config()
+        automation_config = example_config["automation"]
+
+        assert automation_config["enabled"] is False
+        assert automation_config["youtube_authorization_confirmed"] is False
+        assert automation_config["auto_generate"] is True
+        assert automation_config["auto_upload"] is True
+        assert automation_config["videos_per_day"] == 1
+        assert automation_config["daily_upload_time"] == "09:00"
+
+    def test_env_backed_config_override_does_not_touch_raw_saved_value(self):
+        key = "upload_post_api_key"
+        original_value = config.app.get(key, config._MISSING)
+        env_name = "MPT_APP_UPLOAD_POST_API_KEY"
+
+        try:
+            config.app[key] = ""
+            with patch.dict(config.os.environ, {env_name: "secret-from-env"}, clear=False):
+                assert config.app.get(key) == "secret-from-env"
+                assert dict(config.app).get(key) == ""
+        finally:
+            if original_value is config._MISSING:
+                config.app.pop(key, None)
+            else:
+                config.app[key] = original_value

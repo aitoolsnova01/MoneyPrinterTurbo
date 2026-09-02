@@ -744,6 +744,8 @@ DEFAULT_SOCIAL_HASHTAGS = [
     "#creator",
     "#content",
 ]
+MAX_TOPIC_IDEA_NICHE_LENGTH = 1000
+MAX_TOPIC_IDEA_STYLE_LENGTH = 2000
 
 
 def _resolve_social_platform(platform: str | None) -> str:
@@ -826,11 +828,102 @@ def _normalize_hashtags(raw, count: int) -> List[str]:
     return result
 
 
+def build_topic_ideas_prompt(
+    niche: str,
+    language: str = DEFAULT_SOCIAL_LANGUAGE,
+    count: int = 1,
+    style_instruction: str = "",
+    excluded_topics: list[str] | None = None,
+) -> str:
+    niche = _limit_social_text(
+        niche, MAX_TOPIC_IDEA_NICHE_LENGTH, "niche"
+    )
+    style_instruction = _limit_social_text(
+        style_instruction, MAX_TOPIC_IDEA_STYLE_LENGTH, "style_instruction"
+    )
+    language_instruction = _social_language_instruction(language)
+    count = max(1, min(int(count or 1), 10))
+    excluded = ""
+    if excluded_topics:
+        cleaned_topics = [
+            _limit_social_text(topic, 200, "excluded_topic")
+            for topic in excluded_topics
+            if (topic or "").strip()
+        ]
+        if cleaned_topics:
+            excluded = "\n## Avoid Repeating These Recent Topics\n" + "\n".join(
+                f"- {topic}" for topic in cleaned_topics[:20]
+            )
+
+    prompt = f"""
+# Role: YouTube Shorts Topic Strategist
+
+## Goal
+Generate {count} fresh short-video topic ideas for this niche:
+{niche}
+
+## Constraints
+1. Respond ONLY with a valid minified JSON array of strings. No markdown, no code fences, no commentary.
+2. Each idea must be specific, click-worthy, and suitable for a 30-60 second short video.
+3. Avoid generic listicle wording unless the topic naturally needs a number.
+4. Keep each idea under 120 characters.
+5. Focus on practical value, strong curiosity, or timely relevance.
+6. {language_instruction}
+7. Do not mention subscribing, hashtags, thumbnails, or camera directions.
+""".strip()
+    if style_instruction:
+        prompt += f"\n\n## Extra Style Requirements\n{style_instruction}"
+    if excluded:
+        prompt += excluded
+    return prompt
+
+
+def generate_topic_ideas(
+    niche: str,
+    language: str = DEFAULT_SOCIAL_LANGUAGE,
+    count: int = 1,
+    style_instruction: str = "",
+    excluded_topics: list[str] | None = None,
+) -> List[str]:
+    prompt = build_topic_ideas_prompt(
+        niche=niche,
+        language=language,
+        count=count,
+        style_instruction=style_instruction,
+        excluded_topics=excluded_topics,
+    )
+    ideas: list[str] = []
+    for i in range(_max_retries):
+        try:
+            response = _generate_response(prompt)
+            payload = json.loads(_strip_code_fence(response))
+            if not isinstance(payload, list):
+                raise ValueError("topic ideas response is not a JSON array")
+            ideas = [str(item).strip() for item in payload if str(item).strip()]
+            ideas = ideas[: max(1, min(int(count or 1), 10))]
+            if ideas:
+                logger.success(f"generated topic ideas: {ideas}")
+                return ideas
+            raise ValueError("topic ideas response was empty")
+        except Exception as exc:
+            logger.warning(f"failed to generate topic ideas: {exc}")
+            if i < _max_retries - 1:
+                logger.warning(
+                    f"failed to generate topic ideas, trying again... {i + 1}"
+                )
+
+    fallback_niche = (niche or "AI tools").strip()
+    fallback = [f"Best {fallback_niche} idea for today"]
+    logger.warning(f"falling back to heuristic topic ideas: {fallback}")
+    return fallback[: max(1, min(int(count or 1), 10))]
+
+
 def build_social_metadata_prompt(
     video_subject: str,
     video_script: str = "",
     language: str = DEFAULT_SOCIAL_LANGUAGE,
     platform: str = DEFAULT_SOCIAL_PLATFORM,
+    style_instruction: str = "",
 ) -> str:
     video_subject = _limit_social_text(
         video_subject, MAX_SOCIAL_SUBJECT_LENGTH, "video_subject"
@@ -842,6 +935,9 @@ def build_social_metadata_prompt(
     spec = SOCIAL_PLATFORMS[platform]
     label = SOCIAL_PLATFORM_LABELS.get(platform, platform)
     language_instruction = _social_language_instruction(language)
+    style_instruction = _limit_social_text(
+        style_instruction, MAX_TOPIC_IDEA_STYLE_LENGTH, "style_instruction"
+    )
 
     prompt = f"""
 # Role: Short-Video Social Media Copywriter
@@ -867,6 +963,8 @@ Write engaging publishing metadata for a short video that will be posted on {lab
 ### Video Script
 {video_script}
 """.strip()
+    if style_instruction:
+        prompt += f"\n\n## Extra Style Requirements\n{style_instruction}"
     return prompt
 
 
@@ -920,6 +1018,7 @@ def generate_social_metadata(
     video_script: str = "",
     language: str = DEFAULT_SOCIAL_LANGUAGE,
     platform: str = DEFAULT_SOCIAL_PLATFORM,
+    style_instruction: str = "",
 ) -> dict:
     """
     生成短视频发布文案元数据。
@@ -941,6 +1040,7 @@ def generate_social_metadata(
         video_script=video_script,
         language=language,
         platform=platform,
+        style_instruction=style_instruction,
     )
     logger.info(f"generating social metadata: platform={platform}, language={language}")
 

@@ -24,10 +24,119 @@ _pending_config_flush_scheduled = False
 _MISSING = object()
 _DELETE = object()
 _UTF8_BOM = "\ufeff"
+_DOTENV_FILE = os.path.join(root_dir, ".env")
+
+
+def _load_env_file(env_path: str) -> None:
+    """Load KEY=VALUE pairs from .env without overriding real environment vars."""
+    if not os.path.isfile(env_path):
+        return
+
+    try:
+        with open(env_path, mode="r", encoding="utf-8") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("export "):
+                    line = line[7:].strip()
+                if "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip()
+                if not key or key in os.environ:
+                    continue
+                if value and value[0] == value[-1] and value[0] in {'"', "'"}:
+                    value = value[1:-1]
+                os.environ[key] = value
+    except OSError as exc:
+        logger.warning(f"failed to load .env file: path={env_path}, error={exc}")
+
+
+def _parse_env_bool(raw_value: str) -> bool:
+    value = (raw_value or "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _parse_env_list(raw_value: str) -> list[str]:
+    return [item.strip() for item in (raw_value or "").split(",") if item.strip()]
+
+
+def _parse_env_value(raw_value: str, sample_value, key: str):
+    if isinstance(sample_value, bool):
+        return _parse_env_bool(raw_value)
+    if isinstance(sample_value, int) and not isinstance(sample_value, bool):
+        try:
+            return int(raw_value)
+        except (TypeError, ValueError):
+            return sample_value
+    if isinstance(sample_value, float):
+        try:
+            return float(raw_value)
+        except (TypeError, ValueError):
+            return sample_value
+    if isinstance(sample_value, (list, tuple)) or key.endswith(("_api_keys", "_platforms")) or key == "voices":
+        return _parse_env_list(raw_value)
+    return raw_value
+
+
+def _env_var_name(section_name: str | None, key: str) -> str | None:
+    if not section_name:
+        return None
+    return f"MPT_{section_name.upper()}_{key.upper()}"
+
+
+_load_env_file(_DOTENV_FILE)
 
 
 class _SynchronizedConfig(dict):
     """保持 dict 使用方式不变，同时让运行期配置写操作服从同一把锁。"""
+
+    def __init__(self, initial=None, *, section_name: str | None = None):
+        super().__init__(initial or {})
+        self._section_name = section_name
+
+    def _env_override(self, key):
+        env_name = _env_var_name(self._section_name, str(key))
+        if not env_name or env_name not in os.environ:
+            return _MISSING
+        raw_value = os.environ.get(env_name, "")
+        sample_value = dict.get(self, key, _MISSING)
+        if sample_value is _MISSING:
+            sample_value = None
+        return _parse_env_value(raw_value, sample_value, str(key))
+
+    def get(self, key, default=None):
+        override = self._env_override(key)
+        if override is not _MISSING:
+            return override
+        return dict.get(self, key, default)
+
+    def __getitem__(self, key):
+        override = self._env_override(key)
+        if override is not _MISSING:
+            return override
+        return dict.__getitem__(self, key)
+
+    def __contains__(self, key):
+        if self._env_override(key) is not _MISSING:
+            return True
+        return dict.__contains__(self, key)
+
+    def effective_dict(self) -> dict:
+        snapshot = dict(self)
+        prefix = f"MPT_{self._section_name.upper()}_" if self._section_name else ""
+        if prefix:
+            for env_name, raw_value in os.environ.items():
+                if not env_name.startswith(prefix):
+                    continue
+                key = env_name[len(prefix):].lower()
+                sample_value = snapshot.get(key, _MISSING)
+                if sample_value is _MISSING:
+                    sample_value = None
+                snapshot[key] = _parse_env_value(raw_value, sample_value, key)
+        return snapshot
 
     def __setitem__(self, key, value):
         # Streamlit 每次整页 rerun 都会把当前控件值重新写回配置。视频任务持有
@@ -174,7 +283,11 @@ def snapshot_config_with_pending(config_section):
     不会改变正在执行的视频任务。
     """
     with _pending_config_lock:
-        snapshot = dict(config_section)
+        snapshot = (
+            config_section.effective_dict()
+            if hasattr(config_section, "effective_dict")
+            else dict(config_section)
+        )
         section_id = id(config_section)
         for (pending_section_id, key), (_, _, value) in _pending_config_updates.items():
             if pending_section_id != section_id:
@@ -473,6 +586,36 @@ def load_config():
     return _load_toml_config(config_file)
 
 
+def reload_config():
+    """Reload config.toml from disk while keeping env overrides ephemeral."""
+    loaded = load_config()
+    with _config_save_lock:
+        _cfg.clear()
+        _cfg.update(loaded)
+        app.clear()
+        app.update(loaded.get("app", {}))
+        whisper.clear()
+        whisper.update(loaded.get("whisper", {}))
+        proxy.clear()
+        proxy.update(loaded.get("proxy", {}))
+        azure.clear()
+        azure.update(loaded.get("azure", {}))
+        siliconflow.clear()
+        siliconflow.update(loaded.get("siliconflow", {}))
+        minimax_tts.clear()
+        minimax_tts.update(loaded.get("minimax_tts", {}))
+        elevenlabs.clear()
+        elevenlabs.update(loaded.get("elevenlabs", {}))
+        chatterbox.clear()
+        chatterbox.update(loaded.get("chatterbox", {}))
+        fish_audio.clear()
+        fish_audio.update(loaded.get("fish_audio", {}))
+        automation.clear()
+        automation.update(loaded.get("automation", {}))
+        ui.clear()
+        ui.update(loaded.get("ui", {"hide_log": False}))
+
+
 def save_config():
     """
     原子保存运行时配置。
@@ -498,6 +641,7 @@ def save_config():
         config_to_save["elevenlabs"] = dict(elevenlabs)
         config_to_save["chatterbox"] = dict(chatterbox)
         config_to_save["fish_audio"] = dict(fish_audio)
+        config_to_save["automation"] = dict(automation)
         config_to_save["ui"] = dict(ui)
         serialized_config = toml.dumps(config_to_save)
 
@@ -545,22 +689,24 @@ def save_config():
 
 
 _cfg = load_config()
-app = _SynchronizedConfig(_cfg.get("app", {}))
+app = _SynchronizedConfig(_cfg.get("app", {}), section_name="app")
 whisper = _cfg.get("whisper", {})
 proxy = _cfg.get("proxy", {})
-azure = _SynchronizedConfig(_cfg.get("azure", {}))
-siliconflow = _SynchronizedConfig(_cfg.get("siliconflow", {}))
-minimax_tts = _SynchronizedConfig(_cfg.get("minimax_tts", {}))
-elevenlabs = _SynchronizedConfig(_cfg.get("elevenlabs", {}))
-chatterbox = _SynchronizedConfig(_cfg.get("chatterbox", {}))
-fish_audio = _SynchronizedConfig(_cfg.get("fish_audio", {}))
+azure = _SynchronizedConfig(_cfg.get("azure", {}), section_name="azure")
+siliconflow = _SynchronizedConfig(_cfg.get("siliconflow", {}), section_name="siliconflow")
+minimax_tts = _SynchronizedConfig(_cfg.get("minimax_tts", {}), section_name="minimax_tts")
+elevenlabs = _SynchronizedConfig(_cfg.get("elevenlabs", {}), section_name="elevenlabs")
+chatterbox = _SynchronizedConfig(_cfg.get("chatterbox", {}), section_name="chatterbox")
+fish_audio = _SynchronizedConfig(_cfg.get("fish_audio", {}), section_name="fish_audio")
+automation = _SynchronizedConfig(_cfg.get("automation", {}), section_name="automation")
 ui = _SynchronizedConfig(
     _cfg.get(
         "ui",
         {
             "hide_log": False,
         },
-    )
+    ),
+    section_name="ui",
 )
 
 hostname = socket.gethostname()

@@ -494,6 +494,50 @@ voices = []
 # https://fish.audio/pricing for current availability and commercial terms.
 
 # =============================================================================
+# Automation / 自动化
+# =============================================================================
+
+[automation]
+# Enable the dedicated automation worker. When false, scheduled generation stays off
+# but the dashboard can still be used for configuration and manual testing.
+enabled = false
+# Require an explicit acknowledgement that you connected your own YouTube channel
+# inside Upload-Post before any automatic or manual publishing is allowed.
+youtube_authorization_confirmed = false
+# Keep generation and publishing decoupled so the dashboard can offer Upload Now
+# even when daily auto-upload is disabled.
+auto_generate = true
+auto_upload = true
+# Main content niche used to generate the daily topic idea.
+niche = "AI tools for Indian students and freelancers"
+# Script + metadata language (for example: hi-IN, en-US, or Hinglish).
+language = "hi-IN"
+# Approximate Shorts voiceover target in seconds.
+video_duration_seconds = 45
+# Daily publish target in the server's local timezone.
+daily_upload_time = "09:00"
+# How many shorts to produce in one daily run.
+videos_per_day = 1
+# Optional extra style instruction appended to social metadata generation.
+title_description_style = "Practical, curiosity-driven, trustworthy, no hype"
+# Default short-video source. Use pexels for stock footage or openai_image to create image-based clips.
+video_source = "pexels"
+# Optional voice override; leave empty to use the project/default TTS voice.
+voice_name = ""
+# Try to create a thumbnail image artifact when an OpenAI-compatible image endpoint is configured.
+thumbnail_enabled = true
+# How many times to retry a failed full generation run.
+generation_retry_attempts = 2
+# How many times to retry publishing a successfully generated video.
+upload_retry_attempts = 3
+# Delay between retries.
+retry_backoff_minutes = 30
+# Worker polling interval in seconds.
+poll_interval_seconds = 30
+# Cap the number of recent runs shown in the automation dashboard/history file.
+history_limit = 200
+
+# =============================================================================
 # WebUI Preferences / WebUI 偏好
 # =============================================================================
 
