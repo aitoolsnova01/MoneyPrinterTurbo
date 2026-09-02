@@ -1,0 +1,45 @@
+# Copy this file to aitoolsnova/channel.toml and fill in your channel details.
+# Then run:
+#   python aitoolsnova/auto_channel.py plan --config aitoolsnova/channel.toml
+#   python aitoolsnova/auto_channel.py run --config aitoolsnova/channel.toml --job short
+#   python aitoolsnova/auto_channel.py print-cron --config aitoolsnova/channel.toml
+
+[channel]
+name = "AI Tools Nova"
+url = "https://www.youtube.com/@your-channel"
+audience = "Indian students, freelancers, creators, and small business owners"
+focus = "AI tools, AI earning ideas, new AI launches, and practical AI news"
+
+[automation]
+# MoneyPrinterTurbo still reads provider keys from the main config.toml.
+# This file only controls content planning and daily orchestration.
+stop_at = "video"
+video_source = "pexels"
+manifest_directory = "aitoolsnova/batches"
+state_file = "aitoolsnova/state/channel-state.json"
+global_instruction = "Never overpromise income. Mention one honest limitation when relevant."
+
+[short]
+enabled = true
+schedule_time = "09:00"
+mode = "rss"
+rss_queries = [
+  "AI tools OR generative AI OR OpenAI OR Gemini OR Claude",
+  "AI news India OR new AI tool launch",
+]
+prompt_style = "news"
+voice_name = "hi-IN-MadhurNeural-Male"
+paragraph_number = 1
+video_aspect = "9:16"
+extra_instruction = "Keep it tight, useful, and subscriber-friendly for a daily Shorts audience."
+
+[long]
+enabled = true
+schedule_time = "18:00"
+mode = "topic_rotation"
+topic_pillars = ["tutorials", "earning"]
+prompt_style = "auto"
+voice_name = "hi-IN-SwaraNeural-Female"
+paragraph_number = 4
+video_aspect = "16:9"
+extra_instruction = "Explain step-by-step, include realistic Indian use cases, and keep the tone practical."
