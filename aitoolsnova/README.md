@@ -6,15 +6,19 @@ voiceover videos ke roop me.
 
 ```
 aitoolsnova/
-├── README.md              <- yehi file (step-by-step SOP)
-├── strategy.md            <- channel plan, 3 pillars, upload rhythm, monetization
-├── prompts.md             <- LLM system prompts (Hinglish script, hooks, titles, SEO)
-├── topics/                <- har pillar ke liye ready topic lists (.txt)
+├── README.md                 <- yehi file (step-by-step SOP)
+├── strategy.md               <- channel plan, 3 pillars, upload rhythm, monetization
+├── prompts.md                <- LLM system prompts (Hinglish script, hooks, titles, SEO)
+├── topics/                   <- har pillar ke liye ready topic lists (.txt)
 │   ├── tutorials.txt
 │   ├── news.txt
 │   └── earning.txt
-├── make_batch.py          <- topics .txt -> MoneyPrinterTurbo batch JSONL
-└── batches/               <- generated JSONL manifests (yahin banenge)
+├── make_batch.py             <- topics .txt -> MoneyPrinterTurbo batch JSONL
+├── auto_channel.py           <- daily short + long automation helper
+├── channel.example.toml      <- automation config template
+├── batches/                  <- generated JSONL manifests (git-ignore)
+├── logs/                     <- cron / automation logs (git-ignore)
+└── state/                    <- cursor + used-news tracking (git-ignore)
 ```
 
 ---
@@ -167,6 +171,81 @@ enough data mil jayega.
 
 ---
 
+## Step 7 — Complete daily automation (1 Short + 1 Long)
+
+Agar aapko **roz automatic 1 short aur 1 long video** chahiye, to is repo me ab
+`aitoolsnova/auto_channel.py` helper diya gaya hai.
+
+Yeh kya karta hai:
+- **Short job** ke liye Google News RSS se latest AI headline pick karta hai
+- **Long job** ke liye `topics/tutorials.txt` aur `topics/earning.txt` ko rotate karta hai
+- Har job ka MoneyPrinterTurbo batch JSONL banata hai
+- `cli.py` chala kar video generate karta hai
+- Agar `config.toml` me Upload-Post configured hai to generated videos ko **YouTube par auto-upload** bhi kar deta hai
+
+### 7.1 Channel automation config banao
+
+```bash
+cd /home/user/MoneyPrinterTurbo
+cp aitoolsnova/channel.example.toml aitoolsnova/channel.toml
+```
+
+Phir `aitoolsnova/channel.toml` me yeh cheezein edit karo:
+- `channel.url` → apna YouTube channel link
+- `channel.name` → channel name
+- `short.schedule_time` → short kis time chale
+- `long.schedule_time` → long video kis time chale
+- `rss_queries` → kis type ki AI news chahiye
+
+### 7.2 Pehle planning check karo
+
+```bash
+python aitoolsnova/auto_channel.py plan --config aitoolsnova/channel.toml
+```
+
+Isse manifest banega aur console me dikhega ki aaj ka short aur long kis topic par hai.
+
+### 7.3 Manual run test karo
+
+```bash
+python aitoolsnova/auto_channel.py run --config aitoolsnova/channel.toml --job short
+python aitoolsnova/auto_channel.py run --config aitoolsnova/channel.toml --job long
+```
+
+### 7.4 YouTube auto-upload enable karo
+
+Main `config.toml` ke `[app]` section me Upload-Post credentials bharne honge:
+
+```toml
+[app]
+upload_post_enabled = true
+upload_post_api_key = "YOUR_UPLOAD_POST_API_KEY"
+upload_post_username = "YOUR_UPLOAD_POST_USERNAME"
+upload_post_platforms = ["youtube"]
+upload_post_auto_upload = true
+upload_post_youtube_privacy_status = "public"
+```
+
+> Note: `auto_channel.py` channel ideas aur scheduling manage karta hai; actual video render aur
+> YouTube upload ab bhi MoneyPrinterTurbo + Upload-Post se hoga.
+
+### 7.5 Daily cron lines nikaalo
+
+```bash
+python aitoolsnova/auto_channel.py print-cron --config aitoolsnova/channel.toml
+```
+
+Example output kuch aisa hoga:
+
+```cron
+0 9 * * * cd /home/user/MoneyPrinterTurbo && /usr/bin/python3 aitoolsnova/auto_channel.py run --config aitoolsnova/channel.toml --job short >> /home/user/MoneyPrinterTurbo/aitoolsnova/logs/short.log 2>&1
+0 18 * * * cd /home/user/MoneyPrinterTurbo && /usr/bin/python3 aitoolsnova/auto_channel.py run --config aitoolsnova/channel.toml --job long >> /home/user/MoneyPrinterTurbo/aitoolsnova/logs/long.log 2>&1
+```
+
+Un lines ko `crontab -e` me paste kar do. Bas phir roz automatic run hoga.
+
+---
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -179,10 +258,11 @@ enough data mil jayega.
 
 ---
 
-## Aage kya (mai kar sakta hoon)
+## Aage kya aur improve kar sakte hain
 
 - Devanagari font auto-download + default set
-- Auto-upload to YouTube (repo me `upload_post.py` service already hai — usko wire kar dun?)
-- News pillar ke liye RSS scraper jo roz `topics/news.txt` khud bhar de
+- RSS source ko aur curated banana (TechCrunch AI, The Verge AI, India-specific feeds)
+- Thumbnail/title generator add karna
+- Shorts ke saath community-post automation bhi add karna
 
-Bolo, kaunsa pehle chahiye.
+Agar chaho to next step me main **aapke actual channel link aur credentials ke hisaab se `channel.toml` bhar kar ready** bhi kar dunga.

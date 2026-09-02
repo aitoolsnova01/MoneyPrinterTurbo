@@ -98,7 +98,19 @@ def read_topics(pillar: str) -> list[tuple[str, str]]:
     return topics
 
 
-def build_task(pillar: str, subject: str, extra: str, args) -> dict:
+def build_task_from_profile(
+    pillar: str,
+    subject: str,
+    extra: str = "",
+    *,
+    long_form: bool = False,
+    voice: str = "",
+    paragraphs: int = 0,
+    source: str = "pexels",
+) -> dict:
+    if pillar not in PILLARS:
+        raise ValueError(f"unsupported pillar: {pillar}")
+
     preset = PILLARS[pillar]
     prompt = preset["prompt"]
     if extra:
@@ -109,17 +121,17 @@ def build_task(pillar: str, subject: str, extra: str, args) -> dict:
     return {
         "video_subject": subject,
         "video_script_prompt": prompt,
-        "paragraph_number": args.paragraphs or preset["paragraphs"],
-        "video_aspect": "16:9" if args.long else "9:16",
-        "voice_name": args.voice or preset["voice"],
+        "paragraph_number": paragraphs or preset["paragraphs"],
+        "video_aspect": "16:9" if long_form else "9:16",
+        "voice_name": voice or preset["voice"],
         "voice_rate": 0.95,
-        "video_source": args.source,
+        "video_source": source,
         "video_concat_mode": "random",
         "video_transition_mode": "FadeIn",
         "video_clip_duration": preset["clip_duration"],
         "subtitle_enabled": True,
-        "subtitle_position": "center" if not args.long else "bottom",
-        "font_size": 72 if not args.long else 60,
+        "subtitle_position": "center" if not long_form else "bottom",
+        "font_size": 72 if not long_form else 60,
         "text_fore_color": "#FFFFFF",
         "stroke_color": "#000000",
         "stroke_width": 2.0,
@@ -127,6 +139,18 @@ def build_task(pillar: str, subject: str, extra: str, args) -> dict:
         "bgm_volume": 0.12,
         "video_count": 1,
     }
+
+
+def build_task(pillar: str, subject: str, extra: str, args) -> dict:
+    return build_task_from_profile(
+        pillar,
+        subject,
+        extra,
+        long_form=bool(args.long),
+        voice=args.voice or "",
+        paragraphs=args.paragraphs or 0,
+        source=args.source,
+    )
 
 
 def main() -> None:

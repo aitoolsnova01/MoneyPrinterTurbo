@@ -1247,6 +1247,7 @@ def _run_pipeline(
     voice_preview: dict | None = None,
     loomloom_video_request: loomloom.LoomLoomConfirmedVideoRequest | None = None,
     allow_server_file_input: bool = False,
+    cross_post_enabled_override: bool | None = None,
 ):
     logger.info(f"start task: {task_id}, stop_at: {stop_at}")
     sm.state.update_task(task_id, state=const.TASK_STATE_PROCESSING, progress=5)
@@ -1469,6 +1470,8 @@ def _run_pipeline(
         upload_post.upload_post_service.is_configured()
         and upload_post.upload_post_service.auto_upload
     )
+    if cross_post_enabled_override is not None:
+        cross_post_enabled = bool(cross_post_enabled_override) and upload_post.upload_post_service.is_configured()
     platforms = (
         list(upload_post.upload_post_service.platforms) if cross_post_enabled else []
     )
@@ -1526,6 +1529,7 @@ def start(
     voice_preview: dict | None = None,
     loomloom_video_request: loomloom.LoomLoomConfirmedVideoRequest | None = None,
     allow_server_file_input: bool = False,
+    cross_post_enabled_override: bool | None = None,
 ):
     """
     执行任务流水线，并确保未预期异常也会转换成可查询的失败状态。
@@ -1541,6 +1545,7 @@ def start(
             voice_preview=voice_preview,
             loomloom_video_request=loomloom_video_request,
             allow_server_file_input=allow_server_file_input,
+            cross_post_enabled_override=cross_post_enabled_override,
         )
     except Exception as exc:
         logger.exception(
